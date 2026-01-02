@@ -1,0 +1,204 @@
+"""
+Router for file management operations.
+"""
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, status
+from typing import Optional
+from schemas.filesystem import MessageResponse, ListResponse, FileItem, TreeResponse, TreeNode
+from services.filesystem_service import FilesystemService
+
+router = APIRouter()
+filesystem_service = FilesystemService()
+
+
+@router.post("/upload", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+async def upload_file(
+    file: UploadFile = File(..., description="File to upload"),
+    folder_path: str = Form(..., description="Target folder path inside artera (e.g., 'projects/project1/docs')"),
+    overwrite: bool = Form(True, description="Overwrite existing file if it exists")
+):
+    """
+    Upload a file to the specified folder path inside artera.
+    
+    - Accepts multipart/form-data with file and folder_path
+    - Target folder must exist (does not auto-create)
+    - By default, overwrites existing files with the same name
+    - Supports multiple file types (no MIME type restrictions)
+    - Returns 404 if target folder doesn't exist
+    - Returns 409 if file exists and overwrite=False
+    
+    Example form data:
+        file: [binary file data]
+        folder_path: "projects/project1/assets"
+        overwrite: true
+    """
+    try:
+        # Read file content
+        file_content = await file.read()
+        
+        # Upload file
+        saved_path = filesystem_service.upload_file(
+            file_content=file_content,
+            relative_folder_path=folder_path,
+            filename=file.filename,
+            overwrite=overwrite
+        )
+        
+        relative_path = saved_path.relative_to(filesystem_service.get_artera_root())
+        
+        return MessageResponse(
+            message=f"File uploaded successfully: {file.filename}",
+            path=str(relative_path).replace("\\", "/")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
+
+@router.delete("/delete", response_model=MessageResponse, status_code=status.HTTP_200_OK)
+async def delete_file(file_path: str = Query(..., description="Relative path to the file inside artera")):
+    """
+    Delete a file at the specified relative path inside artera.
+    
+    - Validates that the path exists and is a file
+    - Returns 404 if file doesn't exist
+    - Returns 400 if path is not a file
+    
+    Example query parameter:
+        ?file_path=projects/project1/docs/document.pdf
+    """
+    try:
+        filesystem_service.delete_file(file_path)
+        
+        return MessageResponse(
+            message=f"File deleted successfully: {file_path}",
+            path=file_path
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
+
+@router.get("/list", response_model=ListResponse, status_code=status.HTTP_200_OK)
+async def list_files_and_folders(
+    path: Optional[str] = Query(None, description="Optional relative path to list from (default: artera root)"),
+    recursive: bool = Query(True, description="If true, return nested structure. If false, return only direct children.")
+):
+    """
+    List all files and folders inside artera.
+    
+    - Returns nested directory structure by default (recursive=True)
+    - Can list from a specific subdirectory using the path parameter
+    - Returns flat list with full relative paths
+    - Includes name, type (file/folder), relative_path, and size (for files)
+    - Folders are listed first, then files (both alphabetically sorted)
+    
+    Query parameters:
+        path: Optional relative path to list from (e.g., "projects/project1")
+        recursive: If true, return all nested items. If false, return only direct children.
+    
+    Example:
+        GET /api/files/list
+        GET /api/files/list?path=projects/project1
+        GET /api/files/list?path=projects/project1&recursive=false
+    """
+    try:
+        items_data = filesystem_service.list_items(relative_path=path, recursive=recursive)
+        
+        items = [FileItem(**item) for item in items_data]
+        
+        return ListResponse(
+            items=items,
+            total_count=len(items)
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
+
+@router.get("/tree", response_model=TreeResponse, status_code=status.HTTP_200_OK)
+async def get_tree(
+    path: Optional[str] = Query(None, description="Optional relative path to build tree from (default: artera root)")
+):
+    """
+    Get the full nested tree structure of all files and folders inside artera.
+    
+    - Returns a hierarchical tree structure with parent-child relationships
+    - Each folder contains its children in a nested structure
+    - Folders are listed before files at each level
+    - All items are sorted alphabetically within their type
+    - Includes total file and folder counts
+    
+    Query parameters:
+        path: Optional relative path to build tree from (e.g., "projects/project1")
+    
+    Example:
+        GET /api/files/tree
+        GET /api/files/tree?path=projects/project1
+    
+    Response structure:
+        {
+            "tree": [
+                {
+                    "name": "logo",
+                    "type": "folder",
+                    "relative_path": "logo",
+                    "size": null,
+                    "children": [
+                        {
+                            "name": "image.png",
+                            "type": "file",
+                            "relative_path": "logo/image.png",
+                            "size": 1024,
+                            "children": null
+                        }
+                    ]
+                }
+            ],
+            "total_files": 1,
+            "total_folders": 1
+        }
+    """
+    try:
+        tree_data = filesystem_service.get_tree(relative_path=path)
+        
+        # Convert tree nodes to TreeNode models recursively
+        def build_tree_nodes(nodes):
+            result = []
+            for node in nodes:
+                tree_node = TreeNode(
+                    name=node["name"],
+                    type=node["type"],
+                    relative_path=node["relative_path"],
+                    size=node["size"],
+                    children=build_tree_nodes(node["children"]) if node.get("children") else None
+                )
+                result.append(tree_node)
+            return result
+        
+        tree_nodes = build_tree_nodes(tree_data["tree"])
+        
+        return TreeResponse(
+            tree=tree_nodes,
+            total_files=tree_data["total_files"],
+            total_folders=tree_data["total_folders"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artera Storage - File Browser</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 28px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .refresh-btn {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .refresh-btn:active {
+            background-color: #21618c;
+        }
+        
+        .tree-container {
+            background-color: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            padding: 20px;
+            min-height: 200px;
+        }
+        
+        .tree {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .tree-item {
+            padding: 5px 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .tree-item.folder {
+            color: #2980b9;
+            font-weight: 500;
+        }
+        
+        .tree-item.file {
+            color: #555;
+        }
+        
+        .tree-item::before {
+            content: '';
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        .tree-item.folder::before {
+            content: '📁';
+        }
+        
+        .tree-item.file::before {
+            content: '📄';
+        }
+        
+        .tree-item {
+            padding-left: 0;
+        }
+        
+        .tree-item[data-depth="0"] { padding-left: 0px; }
+        .tree-item[data-depth="1"] { padding-left: 24px; }
+        .tree-item[data-depth="2"] { padding-left: 48px; }
+        .tree-item[data-depth="3"] { padding-left: 72px; }
+        .tree-item[data-depth="4"] { padding-left: 96px; }
+        .tree-item[data-depth="5"] { padding-left: 120px; }
+        .tree-item[data-depth="6"] { padding-left: 144px; }
+        .tree-item[data-depth="7"] { padding-left: 168px; }
+        .tree-item[data-depth="8"] { padding-left: 192px; }
+        .tree-item[data-depth="9"] { padding-left: 216px; }
+        
+        .path-separator {
+            color: #999;
+            margin: 0 4px;
+        }
+        
+        .file-size {
+            color: #999;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            padding: 20px;
+            background-color: #fee;
+            border-radius: 5px;
+            border: 1px solid #fcc;
+        }
+        
+        .empty {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Artera Storage - File Browser</h1>
+            <button class="refresh-btn" onclick="loadTree()">Refresh</button>
+        </div>
+        
+        <div class="tree-container">
+            <div id="tree-content">
+                <div class="loading">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+        
+        function renderTreeNode(node, depth = 0) {
+            let html = '';
+            
+            html += `<li class="tree-item ${node.type}" data-depth="${depth}">`;
+            
+            if (node.type === 'folder') {
+                html += `<span>${node.name}</span>`;
+            } else {
+                html += `<span>${node.name}</span>`;
+                if (node.size !== null) {
+                    html += `<span class="file-size">(${formatFileSize(node.size)})</span>`;
+                }
+            }
+            
+            html += '</li>';
+            
+            // Render children if they exist
+            if (node.children && node.children.length > 0) {
+                node.children.forEach(child => {
+                    html += renderTreeNode(child, depth + 1);
+                });
+            }
+            
+            return html;
+        }
+        
+        function buildTree(treeData) {
+            if (!treeData || !treeData.tree || treeData.tree.length === 0) {
+                return '<div class="empty">No files or folders found</div>';
+            }
+            
+            let html = '<ul class="tree">';
+            
+            // Render each root node and its children recursively
+            treeData.tree.forEach(rootNode => {
+                html += renderTreeNode(rootNode, 0);
+            });
+            
+            html += '</ul>';
+            
+            // Add summary information
+            if (treeData.total_files !== undefined || treeData.total_folders !== undefined) {
+                html += `<div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #e0e0e0; color: #666; font-size: 12px;">`;
+                html += `Total: ${treeData.total_folders || 0} folder${treeData.total_folders !== 1 ? 's' : ''}, ${treeData.total_files || 0} file${treeData.total_files !== 1 ? 's' : ''}`;
+                html += `</div>`;
+            }
+            
+            return html;
+        }
+        
+        async function loadTree() {
+            const contentDiv = document.getElementById('tree-content');
+            contentDiv.innerHTML = '<div class="loading">Loading...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/files/tree`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                contentDiv.innerHTML = buildTree(data);
+            } catch (error) {
+                contentDiv.innerHTML = `<div class="error">Error loading files: ${error.message}</div>`;
+                console.error('Error:', error);
+            }
+        }
+        
+        // Load tree on page load
+        window.addEventListener('DOMContentLoaded', loadTree);
+    </script>
+</body>
+</html>
+

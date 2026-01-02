@@ -1,0 +1,512 @@
+================================================================================
+                    ARTERA STORAGE API - ENDPOINTS DOCUMENTATION
+================================================================================
+
+Base URL: http://localhost:8975
+API Documentation: http://localhost:8975/docs (Swagger UI)
+Web UI: http://localhost:8975/
+
+================================================================================
+                            FOLDER MANAGEMENT ENDPOINTS
+================================================================================
+
+1. CREATE FOLDER
+--------------------------------------------------------------------------------
+Endpoint: POST /api/folders/create
+Status Code: 201 Created
+
+Description:
+    Create a folder at the specified relative path inside artera directory.
+    Creates intermediate directories if they don't exist.
+    If folder already exists, returns success (idempotent operation).
+    Supports nested folder creation in a single request.
+
+Request Headers:
+    Content-Type: application/json
+
+Request Body (JSON):
+    {
+        "path": "projects/project1/assets/images"
+    }
+
+Request Body Fields:
+    - path (string, required): Relative path inside artera directory
+      Example: "projects/project1/assets/images"
+      Example: "clients/clientA/docs/2026"
+
+Example Request (cURL):
+    curl -X POST "http://localhost:8975/api/folders/create" \
+         -H "Content-Type: application/json" \
+         -d '{"path": "projects/project1/assets/images"}'
+
+Example Request (Python):
+    import requests
+    
+    response = requests.post(
+        "http://localhost:8975/api/folders/create",
+        json={"path": "projects/project1/assets/images"}
+    )
+    print(response.json())
+
+Success Response (201 Created):
+    {
+        "message": "Folder created successfully: projects/project1/assets/images",
+        "path": "projects/project1/assets/images"
+    }
+
+Error Responses:
+    - 400 Bad Request: Invalid path or path traversal detected
+    - 500 Internal Server Error: Failed to create folder
+
+
+2. DELETE FOLDER
+--------------------------------------------------------------------------------
+Endpoint: DELETE /api/folders/delete
+Status Code: 200 OK
+
+Description:
+    Delete a folder at the specified relative path inside artera directory.
+    Validates that the path exists and is a folder.
+    Recursively deletes folder and all its contents.
+    Returns 404 if folder doesn't exist.
+
+Request Headers:
+    Content-Type: application/json
+
+Request Body (JSON):
+    {
+        "path": "projects/project1/assets/images"
+    }
+
+Request Body Fields:
+    - path (string, required): Relative path to the folder inside artera
+
+Example Request (cURL):
+    curl -X DELETE "http://localhost:8975/api/folders/delete" \
+         -H "Content-Type: application/json" \
+         -d '{"path": "projects/project1/assets/images"}'
+
+Example Request (Python):
+    import requests
+    
+    response = requests.delete(
+        "http://localhost:8975/api/folders/delete",
+        json={"path": "projects/project1/assets/images"}
+    )
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "message": "Folder deleted successfully: projects/project1/assets/images",
+        "path": "projects/project1/assets/images"
+    }
+
+Error Responses:
+    - 400 Bad Request: Invalid path or path is not a folder
+    - 404 Not Found: Folder doesn't exist
+    - 500 Internal Server Error: Failed to delete folder
+
+
+================================================================================
+                            FILE MANAGEMENT ENDPOINTS
+================================================================================
+
+3. UPLOAD FILE
+--------------------------------------------------------------------------------
+Endpoint: POST /api/files/upload
+Status Code: 201 Created
+
+Description:
+    Upload a file to the specified folder path inside artera directory.
+    Target folder must exist (does not auto-create).
+    By default, overwrites existing files with the same name.
+    Supports multiple file types (no MIME type restrictions).
+    Returns 404 if target folder doesn't exist.
+    Returns 409 if file exists and overwrite=false.
+
+Request Headers:
+    Content-Type: multipart/form-data
+
+Request Body (Form Data):
+    - file (file, required): The file to upload
+    - folder_path (string, required): Target folder path inside artera
+      Example: "projects/project1/docs"
+    - overwrite (boolean, optional): Whether to overwrite existing file
+      Default: true
+
+Example Request (cURL):
+    curl -X POST "http://localhost:8975/api/files/upload" \
+         -F "file=@/path/to/document.pdf" \
+         -F "folder_path=projects/project1/docs" \
+         -F "overwrite=true"
+
+Example Request (Python):
+    import requests
+    
+    with open('document.pdf', 'rb') as f:
+        files = {'file': f}
+        data = {
+            'folder_path': 'projects/project1/docs',
+            'overwrite': 'true'
+        }
+        response = requests.post(
+            "http://localhost:8975/api/files/upload",
+            files=files,
+            data=data
+        )
+    print(response.json())
+
+Success Response (201 Created):
+    {
+        "message": "File uploaded successfully: document.pdf",
+        "path": "projects/project1/docs/document.pdf"
+    }
+
+Error Responses:
+    - 400 Bad Request: Invalid folder path or filename
+    - 404 Not Found: Target folder doesn't exist
+    - 409 Conflict: File exists and overwrite=false
+    - 500 Internal Server Error: Failed to save file
+
+
+4. DELETE FILE
+--------------------------------------------------------------------------------
+Endpoint: DELETE /api/files/delete
+Status Code: 200 OK
+
+Description:
+    Delete a file at the specified relative path inside artera directory.
+    Validates that the path exists and is a file.
+    Returns 404 if file doesn't exist.
+    Returns 400 if path is not a file.
+
+Query Parameters:
+    - file_path (string, required): Relative path to the file inside artera
+
+Example Request (cURL):
+    curl -X DELETE "http://localhost:8975/api/files/delete?file_path=projects/project1/docs/document.pdf"
+
+Example Request (Python):
+    import requests
+    
+    response = requests.delete(
+        "http://localhost:8975/api/files/delete",
+        params={"file_path": "projects/project1/docs/document.pdf"}
+    )
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "message": "File deleted successfully: projects/project1/docs/document.pdf",
+        "path": "projects/project1/docs/document.pdf"
+    }
+
+Error Responses:
+    - 400 Bad Request: Path is not a file
+    - 404 Not Found: File doesn't exist
+    - 500 Internal Server Error: Failed to delete file
+
+
+5. LIST FILES AND FOLDERS
+--------------------------------------------------------------------------------
+Endpoint: GET /api/files/list
+Status Code: 200 OK
+
+Description:
+    List all files and folders inside artera directory.
+    Returns nested directory structure by default (recursive=True).
+    Can list from a specific subdirectory using the path parameter.
+    Returns flat list with full relative paths.
+    Includes name, type (file/folder), relative_path, and size (for files).
+    Folders are listed first, then files (both alphabetically sorted).
+
+Query Parameters:
+    - path (string, optional): Relative path to list from (default: artera root)
+      Example: "projects/project1"
+    - recursive (boolean, optional): If true, return all nested items.
+      If false, return only direct children.
+      Default: true
+
+Example Request (cURL):
+    # List all files and folders recursively
+    curl "http://localhost:8975/api/files/list?recursive=true"
+    
+    # List from specific folder
+    curl "http://localhost:8975/api/files/list?path=projects/project1"
+    
+    # List only direct children
+    curl "http://localhost:8975/api/files/list?path=projects/project1&recursive=false"
+
+Example Request (Python):
+    import requests
+    
+    # List all recursively
+    response = requests.get(
+        "http://localhost:8975/api/files/list",
+        params={"recursive": True}
+    )
+    print(response.json())
+    
+    # List from specific folder
+    response = requests.get(
+        "http://localhost:8975/api/files/list",
+        params={"path": "projects/project1", "recursive": False}
+    )
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "items": [
+            {
+                "name": "logo",
+                "type": "folder",
+                "relative_path": "logo",
+                "size": null
+            },
+            {
+                "name": "potentials",
+                "type": "folder",
+                "relative_path": "potentials",
+                "size": null
+            },
+            {
+                "name": "document.pdf",
+                "type": "file",
+                "relative_path": "projects/project1/docs/document.pdf",
+                "size": 1024
+            }
+        ],
+        "total_count": 3
+    }
+
+Error Responses:
+    - 400 Bad Request: Path is not a folder
+    - 404 Not Found: Path doesn't exist
+    - 500 Internal Server Error: Unexpected error
+
+
+6. GET TREE STRUCTURE
+--------------------------------------------------------------------------------
+Endpoint: GET /api/files/tree
+Status Code: 200 OK
+
+Description:
+    Get the full nested tree structure of all files and folders inside artera.
+    Returns a hierarchical tree structure with parent-child relationships.
+    Each folder contains its children in a nested structure.
+    Folders are listed before files at each level.
+    All items are sorted alphabetically within their type.
+    Includes total file and folder counts.
+
+Query Parameters:
+    - path (string, optional): Relative path to build tree from (default: artera root)
+      Example: "projects/project1"
+
+Example Request (cURL):
+    # Get full tree from root
+    curl "http://localhost:8975/api/files/tree"
+    
+    # Get tree from specific folder
+    curl "http://localhost:8975/api/files/tree?path=projects/project1"
+
+Example Request (Python):
+    import requests
+    
+    # Get full tree
+    response = requests.get("http://localhost:8975/api/files/tree")
+    print(response.json())
+    
+    # Get tree from specific folder
+    response = requests.get(
+        "http://localhost:8975/api/files/tree",
+        params={"path": "projects/project1"}
+    )
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "tree": [
+            {
+                "name": "logo",
+                "type": "folder",
+                "relative_path": "logo",
+                "size": null,
+                "children": [
+                    {
+                        "name": "image.png",
+                        "type": "file",
+                        "relative_path": "logo/image.png",
+                        "size": 1024,
+                        "children": null
+                    }
+                ]
+            },
+            {
+                "name": "potentials",
+                "type": "folder",
+                "relative_path": "potentials",
+                "size": null,
+                "children": []
+            }
+        ],
+        "total_files": 1,
+        "total_folders": 2
+    }
+
+Error Responses:
+    - 400 Bad Request: Path is not a folder
+    - 404 Not Found: Path doesn't exist
+    - 500 Internal Server Error: Unexpected error
+
+
+================================================================================
+                            UTILITY ENDPOINTS
+================================================================================
+
+7. ROOT ENDPOINT (Web UI)
+--------------------------------------------------------------------------------
+Endpoint: GET /
+Status Code: 200 OK
+
+Description:
+    Serves the HTML web UI for browsing files and folders.
+    If HTML file doesn't exist, returns API information.
+
+Example Request:
+    Open in browser: http://localhost:8975/
+
+Response:
+    HTML page with file browser interface
+
+
+8. API INFORMATION
+--------------------------------------------------------------------------------
+Endpoint: GET /api
+Status Code: 200 OK
+
+Description:
+    Returns API information and status.
+
+Example Request (cURL):
+    curl "http://localhost:8975/api"
+
+Example Request (Python):
+    import requests
+    
+    response = requests.get("http://localhost:8975/api")
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "message": "Artera Storage API",
+        "status": "running",
+        "version": "1.0.0",
+        "base_url": "http://localhost:8975"
+    }
+
+
+9. HEALTH CHECK
+--------------------------------------------------------------------------------
+Endpoint: GET /health
+Status Code: 200 OK
+
+Description:
+    Returns health status and artera root directory information.
+
+Example Request (cURL):
+    curl "http://localhost:8975/health"
+
+Example Request (Python):
+    import requests
+    
+    response = requests.get("http://localhost:8975/health")
+    print(response.json())
+
+Success Response (200 OK):
+    {
+        "status": "healthy",
+        "artera_root_exists": true,
+        "artera_root_path": "/path/to/artera-storage/artera"
+    }
+
+
+================================================================================
+                            HTTP STATUS CODES
+================================================================================
+
+200 OK              - Successful operation
+201 Created         - Resource created successfully
+400 Bad Request     - Invalid input or path traversal detected
+404 Not Found       - File or folder doesn't exist
+409 Conflict        - Resource conflict (e.g., file exists when overwrite=false)
+500 Internal Server Error - Unexpected server error
+
+
+================================================================================
+                            SECURITY NOTES
+================================================================================
+
+1. Path Traversal Protection:
+   - All paths are validated to prevent "../" attacks
+   - All operations are restricted to the artera directory
+   - Invalid paths return 400 Bad Request
+
+2. Path Validation:
+   - Relative paths only (no absolute paths)
+   - No path traversal sequences allowed
+   - All paths are normalized and validated
+
+3. File Upload:
+   - Target folder must exist (no auto-creation)
+   - Filename validation prevents path traversal
+   - Overwrite behavior is configurable
+
+
+================================================================================
+                            EXAMPLES SUMMARY
+================================================================================
+
+# Create a folder
+POST /api/folders/create
+Body: {"path": "projects/project1/assets"}
+
+# Delete a folder
+DELETE /api/folders/delete
+Body: {"path": "projects/project1/assets"}
+
+# Upload a file
+POST /api/files/upload
+Form Data: file=@document.pdf, folder_path=projects/project1/docs, overwrite=true
+
+# Delete a file
+DELETE /api/files/delete?file_path=projects/project1/docs/document.pdf
+
+# List all files and folders
+GET /api/files/list?recursive=true
+
+# Get tree structure
+GET /api/files/tree
+
+# Health check
+GET /health
+
+
+================================================================================
+                            NOTES
+================================================================================
+
+- Base URL can be configured in .env file (BASE_URL)
+- Default port is 8975 (configurable via PORT in .env)
+- All file and folder operations are restricted to the artera directory
+- The artera directory is automatically created on application startup
+- Default folders (logo, potentials) are created on startup
+- Folder deletion is recursive by default (deletes all contents)
+- File uploads overwrite existing files by default
+- Interactive API documentation available at /docs (Swagger UI)
+- Alternative API documentation at /redoc
+
+
+================================================================================
+                            END OF DOCUMENTATION
+================================================================================
+
