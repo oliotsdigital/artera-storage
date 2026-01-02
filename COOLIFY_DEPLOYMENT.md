@@ -84,7 +84,10 @@ BASE_URL=https://your-domain.com
 ```
 PORT=8975
 CORS_ORIGINS=https://your-frontend.com
+STORAGE_ROOT=artera
 ```
+
+**Note**: `STORAGE_ROOT` configures the folder name where files are stored (default: `artera`). If you change this, update the volume mount path accordingly.
 
 **Important**: 
 - `BASE_URL` is used throughout the application (API docs, responses, web UI)
@@ -234,10 +237,12 @@ Look for these messages on startup:
 
 **For Coolify UI:**
 ```
-Container Path: /app/artera
+Container Path: /app/artera (or /app/{STORAGE_ROOT} if using custom folder name)
 Volume Name: artera-storage-data
 Volume Type: Named Volume
 ```
+
+**Note**: The container path should match `/app/{STORAGE_ROOT}` where `STORAGE_ROOT` is the value from your `.env` file (default: `artera`).
 
 **For docker-compose.yml (if supported):**
 ```yaml

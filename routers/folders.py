@@ -15,7 +15,11 @@ filesystem_service = FilesystemService()
     status_code=status.HTTP_201_CREATED,
     summary="Create Folder",
     description="""
-    Create a folder at the specified relative path inside the artera directory.
+    Create a folder at the specified relative path inside the storage root directory.
+    
+    **Storage Location:**
+    - Folders are created in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
     
     **Features:**
     - Creates intermediate directories if they don't exist
@@ -48,7 +52,7 @@ filesystem_service = FilesystemService()
 )
 async def create_folder(request: CreateFolderRequest):
     """
-    Create a folder at the specified relative path inside artera.
+    Create a folder at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
     - Creates intermediate directories if they don't exist
     - If folder already exists, returns success (idempotent operation)
@@ -61,7 +65,7 @@ async def create_folder(request: CreateFolderRequest):
     """
     try:
         created_path = filesystem_service.create_folder(request.path)
-        relative_path = created_path.relative_to(filesystem_service.get_artera_root())
+        relative_path = created_path.relative_to(filesystem_service.get_storage_root())
         
         return MessageResponse(
             message=f"Folder created successfully: {relative_path}",
@@ -82,7 +86,11 @@ async def create_folder(request: CreateFolderRequest):
     status_code=status.HTTP_200_OK,
     summary="Delete Folder",
     description="""
-    Delete a folder at the specified relative path inside the artera directory.
+    Delete a folder at the specified relative path inside the storage root directory.
+    
+    **Storage Location:**
+    - Folders are stored in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
     
     **Warning:** This operation is recursive and will delete the folder and ALL its contents.
     
@@ -117,7 +125,7 @@ async def create_folder(request: CreateFolderRequest):
 )
 async def delete_folder(request: DeleteFolderRequest):
     """
-    Delete a folder at the specified relative path inside artera.
+    Delete a folder at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
     - Validates that the path exists and is a folder
     - Recursively deletes folder and all its contents

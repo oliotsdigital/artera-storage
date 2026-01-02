@@ -114,6 +114,9 @@ Set these environment variables (see `.env.example` for reference):
 **Optional (defaults provided):**
 - `PORT`: `8975` (default)
 - `CORS_ORIGINS`: Your allowed origins (comma-separated, e.g., `https://frontend.com`, or `*` for all)
+- `STORAGE_ROOT`: Storage folder name (default: `artera`)
+  - Configures the folder name where all files are stored
+  - If changed, update volume mount paths accordingly
 
 #### Step 4: Deploy
 

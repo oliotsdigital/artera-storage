@@ -26,10 +26,12 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy application code
 COPY . .
 
-# Create artera directory (will be mounted as volume in production)
+# Create storage directory (will be mounted as volume in production)
+# Directory name is configurable via STORAGE_ROOT env var (default: artera)
 # This ensures the directory exists even if volume mount fails
-RUN mkdir -p /app/artera && \
-    chmod 755 /app/artera
+ARG STORAGE_ROOT=artera
+RUN mkdir -p /app/${STORAGE_ROOT} && \
+    chmod 755 /app/${STORAGE_ROOT}
 
 # Expose port
 EXPOSE ${PORT}

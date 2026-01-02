@@ -16,7 +16,11 @@ filesystem_service = FilesystemService()
     status_code=status.HTTP_201_CREATED,
     summary="Upload File",
     description="""
-    Upload a file to the specified folder path inside the artera directory.
+    Upload a file to the specified folder path inside the storage root directory.
+    
+    **Storage Location:**
+    - Files are stored in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
     
     **Features:**
     - Accepts multipart/form-data with file and folder_path
@@ -27,7 +31,7 @@ filesystem_service = FilesystemService()
     
     **Form Fields:**
     - `file`: The file to upload (required)
-    - `folder_path`: Target folder path inside artera (required)
+    - `folder_path`: Target folder path inside storage root (required)
     - `overwrite`: Whether to overwrite existing file (default: true)
     
     **Example:**
@@ -57,11 +61,11 @@ filesystem_service = FilesystemService()
 )
 async def upload_file(
     file: UploadFile = File(..., description="File to upload"),
-    folder_path: str = Form(..., description="Target folder path inside artera (e.g., 'projects/project1/docs')"),
+    folder_path: str = Form(..., description="Target folder path inside storage root (e.g., 'projects/project1/docs')"),
     overwrite: bool = Form(True, description="Overwrite existing file if it exists")
 ):
     """
-    Upload a file to the specified folder path inside artera.
+    Upload a file to the specified folder path inside storage root (configurable via STORAGE_ROOT env var).
     
     - Accepts multipart/form-data with file and folder_path
     - Target folder must exist (does not auto-create)
@@ -87,7 +91,7 @@ async def upload_file(
             overwrite=overwrite
         )
         
-        relative_path = saved_path.relative_to(filesystem_service.get_artera_root())
+        relative_path = saved_path.relative_to(filesystem_service.get_storage_root())
         
         return MessageResponse(
             message=f"File uploaded successfully: {file.filename}",
@@ -108,7 +112,10 @@ async def upload_file(
     status_code=status.HTTP_200_OK,
     summary="Delete File",
     description="""
-    Delete a file at the specified relative path inside the artera directory.
+    Delete a file at the specified relative path inside the storage root directory.
+    
+    **Storage Location:**
+    - Files are stored in the storage root directory (configurable via STORAGE_ROOT env var)
     
     **Features:**
     - Validates that the path exists and is a file
@@ -141,9 +148,9 @@ async def upload_file(
         500: {"description": "Internal server error"}
     }
 )
-async def delete_file(file_path: str = Query(..., description="Relative path to the file inside artera")):
+async def delete_file(file_path: str = Query(..., description="Relative path to the file inside storage root")):
     """
-    Delete a file at the specified relative path inside artera.
+    Delete a file at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
     - Validates that the path exists and is a file
     - Returns 404 if file doesn't exist
@@ -174,7 +181,11 @@ async def delete_file(file_path: str = Query(..., description="Relative path to 
     status_code=status.HTTP_200_OK,
     summary="List Files and Folders",
     description="""
-    List all files and folders inside the artera directory.
+    List all files and folders inside the storage root directory.
+    
+    **Storage Location:**
+    - Files are stored in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
     
     **Features:**
     - Returns nested directory structure by default (recursive=True)
@@ -184,7 +195,7 @@ async def delete_file(file_path: str = Query(..., description="Relative path to 
     - Folders are listed first, then files (both alphabetically sorted)
     
     **Query Parameters:**
-    - `path`: Optional relative path to list from (default: artera root)
+    - `path`: Optional relative path to list from (default: storage root)
     - `recursive`: If true, return all nested items. If false, return only direct children.
     
     **Examples:**
@@ -225,11 +236,11 @@ async def delete_file(file_path: str = Query(..., description="Relative path to 
     }
 )
 async def list_files_and_folders(
-    path: Optional[str] = Query(None, description="Optional relative path to list from (default: artera root)"),
+    path: Optional[str] = Query(None, description="Optional relative path to list from (default: storage root)"),
     recursive: bool = Query(True, description="If true, return nested structure. If false, return only direct children.")
 ):
     """
-    List all files and folders inside artera.
+    List all files and folders inside storage root (configurable via STORAGE_ROOT env var).
     
     - Returns nested directory structure by default (recursive=True)
     - Can list from a specific subdirectory using the path parameter
@@ -270,7 +281,11 @@ async def list_files_and_folders(
     status_code=status.HTTP_200_OK,
     summary="Get Tree Structure",
     description="""
-    Get the full nested tree structure of all files and folders inside the artera directory.
+    Get the full nested tree structure of all files and folders inside the storage root directory.
+    
+    **Storage Location:**
+    - Files are stored in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
     
     **Features:**
     - Returns a hierarchical tree structure with parent-child relationships
@@ -280,7 +295,7 @@ async def list_files_and_folders(
     - Includes total file and folder counts
     
     **Query Parameters:**
-    - `path`: Optional relative path to build tree from (default: artera root)
+    - `path`: Optional relative path to build tree from (default: storage root)
     
     **Examples:**
     ```
@@ -333,10 +348,10 @@ async def list_files_and_folders(
     }
 )
 async def get_tree(
-    path: Optional[str] = Query(None, description="Optional relative path to build tree from (default: artera root)")
+    path: Optional[str] = Query(None, description="Optional relative path to build tree from (default: storage root)")
 ):
     """
-    Get the full nested tree structure of all files and folders inside artera.
+    Get the full nested tree structure of all files and folders inside storage root (configurable via STORAGE_ROOT env var).
     
     - Returns a hierarchical tree structure with parent-child relationships
     - Each folder contains its children in a nested structure

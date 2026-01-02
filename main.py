@@ -1,5 +1,6 @@
 """
-FastAPI application for managing files and folders within the 'artera' root directory.
+FastAPI application for managing files and folders within a configurable storage root directory.
+The storage folder name is configurable via STORAGE_ROOT environment variable (default: 'artera').
 """
 import os
 from fastapi import FastAPI
@@ -18,14 +19,25 @@ load_dotenv()
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8975")
 PORT = int(os.getenv("PORT", "8975"))
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") != "*" else ["*"]
+STORAGE_ROOT = os.getenv("STORAGE_ROOT", "artera")  # Configurable storage folder name
 
 # Initialize FastAPI app with enhanced OpenAPI documentation
 app = FastAPI(
     title="Artera Storage API",
-    description="""
+    description=f"""
     ## Artera Storage API
     
-    A secure FastAPI application for managing files and folders within the `artera` root directory.
+    A secure FastAPI application for managing files and folders within a configurable storage root directory.
+    
+    ### Configuration (Environment Variables)
+    
+    All configuration is done via environment variables (see `.env` file):
+    
+    * **BASE_URL**: API base URL - `{BASE_URL}` (used in API docs, responses, web UI)
+    * **PORT**: Server port - `{PORT}` (default: 8975)
+    * **STORAGE_ROOT**: Storage folder name - `{STORAGE_ROOT}` (default: artera)
+    * **CORS_ORIGINS**: Allowed CORS origins (comma-separated or `*` for all)
+    * **RELOAD**: Enable auto-reload for development (true/false)
     
     ### Features
     
@@ -37,22 +49,22 @@ app = FastAPI(
     
     ### Security
     
-    * All operations are restricted to the `artera` directory
+    * All operations are restricted to the storage root directory (`{STORAGE_ROOT}`)
     * Path traversal attacks are prevented (`../` blocked)
     * Input validation using Pydantic models
     * Proper HTTP status codes for all operations
     
     ### Data Persistence
     
-    * The `artera` folder and all contents persist across redeployments
+    * The storage folder (`{STORAGE_ROOT}`) and all contents persist across redeployments
     * Default folders (`logo`, `potentials`) are created automatically
     * All user data is preserved during application updates
     
     ### API Documentation
     
-    * **Swagger UI**: Available at `/docs`
-    * **ReDoc**: Available at `/redoc`
-    * **OpenAPI JSON**: Available at `/openapi.json`
+    * **Swagger UI**: Available at `{BASE_URL}/docs`
+    * **ReDoc**: Available at `{BASE_URL}/redoc`
+    * **OpenAPI JSON**: Available at `{BASE_URL}/openapi.json`
     """,
     version="1.0.0",
     terms_of_service="https://example.com/terms/",
@@ -106,28 +118,78 @@ static_dir.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
+def custom_openapi():
+    """Customize OpenAPI schema to include environment variable information."""
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    from fastapi.openapi.utils import get_openapi
+    
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Add environment variable information to the schema
+    openapi_schema["info"]["x-environment-variables"] = {
+        "BASE_URL": {
+            "description": "API base URL used in documentation, responses, and web UI",
+            "default": "http://localhost:8975",
+            "current": BASE_URL
+        },
+        "PORT": {
+            "description": "Server port number",
+            "default": "8975",
+            "current": str(PORT)
+        },
+        "STORAGE_ROOT": {
+            "description": "Storage folder name where all files are stored",
+            "default": "artera",
+            "current": STORAGE_ROOT
+        },
+        "CORS_ORIGINS": {
+            "description": "CORS allowed origins (comma-separated or * for all)",
+            "default": "*",
+            "current": ",".join(CORS_ORIGINS) if isinstance(CORS_ORIGINS, list) else str(CORS_ORIGINS)
+        },
+        "RELOAD": {
+            "description": "Enable auto-reload for development",
+            "default": "true",
+            "current": os.getenv("RELOAD", "true")
+        }
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
+
+
 @app.on_event("startup")
 async def startup_event():
     """
-    Initialize the artera root directory on application startup.
+    Initialize the storage root directory on application startup.
     
     IMPORTANT: This function only creates directories if they don't exist.
-    Existing files and folders in the artera directory are NEVER deleted or modified.
-    The artera folder and all its contents persist across redeployments.
+    Existing files and folders in the storage directory are NEVER deleted or modified.
+    The storage folder and all its contents persist across redeployments.
     
-    - Creates the artera directory if it doesn't exist
+    - Creates the storage directory if it doesn't exist (name from STORAGE_ROOT env var)
     - Creates default folders (logo, potentials) if they don't exist
     - Preserves all existing files and folders
     """
-    artera_root = Path(__file__).parent / "artera"
+    storage_root = Path(__file__).parent / STORAGE_ROOT
     
-    # Create artera root directory if it doesn't exist (preserves existing content)
-    artera_root.mkdir(exist_ok=True)
+    # Create storage root directory if it doesn't exist (preserves existing content)
+    storage_root.mkdir(exist_ok=True)
     
     # Create default folders only if they don't exist (preserves existing content)
     default_folders = ["logo", "potentials"]
     for folder_name in default_folders:
-        folder_path = artera_root / folder_name
+        folder_path = storage_root / folder_name
         if not folder_path.exists():
             folder_path.mkdir(exist_ok=True)
             print(f"✓ Default folder created: {folder_name}")
@@ -135,11 +197,12 @@ async def startup_event():
             print(f"✓ Default folder already exists: {folder_name} (preserved)")
     
     # Count existing items to show preservation status
-    existing_items_count = len(list(artera_root.iterdir())) if artera_root.exists() else 0
+    existing_items_count = len(list(storage_root.iterdir())) if storage_root.exists() else 0
     
-    print(f"✓ Artera root directory initialized at: {artera_root.absolute()}")
+    print(f"✓ Storage root directory initialized at: {storage_root.absolute()}")
+    print(f"✓ Storage folder name: {STORAGE_ROOT}")
     print(f"✓ Existing items preserved: {existing_items_count} items found")
-    print("⚠ IMPORTANT: All files and folders in artera directory persist across redeployments")
+    print(f"⚠ IMPORTANT: All files and folders in {STORAGE_ROOT} directory persist across redeployments")
 
 
 @app.get(
@@ -178,16 +241,34 @@ async def root():
     "/api",
     tags=["utilities"],
     summary="API Information",
-    description="Returns API information including version, status, and base URL.",
-    response_description="API information and status"
+    description=f"""
+    Returns API information including version, status, base URL, and configuration.
+    
+    **Configuration:**
+    - Base URL: `{BASE_URL}` (from BASE_URL env var)
+    - Port: `{PORT}` (from PORT env var)
+    - Storage Root: `{STORAGE_ROOT}` (from STORAGE_ROOT env var)
+    """,
+    response_description="API information, status, and configuration"
 )
 async def api_info():
-    """API information endpoint."""
+    """
+    API information endpoint.
+    Returns current configuration from environment variables.
+    """
     return {
         "message": "Artera Storage API",
         "status": "running",
         "version": "1.0.0",
-        "base_url": BASE_URL
+        "base_url": BASE_URL,
+        "port": PORT,
+        "storage_root": STORAGE_ROOT,
+        "configuration": {
+            "base_url": BASE_URL,
+            "port": PORT,
+            "storage_root": STORAGE_ROOT,
+            "cors_enabled": CORS_ORIGINS != ["*"] if isinstance(CORS_ORIGINS, list) else CORS_ORIGINS == "*"
+        }
     }
 
 
@@ -195,17 +276,33 @@ async def api_info():
     "/health",
     tags=["utilities"],
     summary="Health Check",
-    description="Returns the health status of the API and artera directory information.",
-    response_description="Health status and artera root directory information"
+    description=f"""
+    Returns the health status of the API and storage directory information.
+    
+    **Configuration:**
+    - Storage folder name: `{STORAGE_ROOT}` (from STORAGE_ROOT env var)
+    - Base URL: `{BASE_URL}` (from BASE_URL env var)
+    """,
+    response_description="Health status, storage root directory information, and configuration"
 )
 async def health_check():
-    """Health check endpoint."""
-    artera_root = Path(__file__).parent / "artera"
+    """
+    Health check endpoint.
+    Returns health status and current configuration from environment variables.
+    """
+    storage_root = Path(__file__).parent / STORAGE_ROOT
     return {
         "status": "healthy",
         "base_url": BASE_URL,
-        "artera_root_exists": artera_root.exists(),
-        "artera_root_path": str(artera_root.absolute())
+        "port": PORT,
+        "storage_root": STORAGE_ROOT,
+        "storage_root_exists": storage_root.exists(),
+        "storage_root_path": str(storage_root.absolute()),
+        "configuration": {
+            "base_url": BASE_URL,
+            "port": PORT,
+            "storage_root": STORAGE_ROOT
+        }
     }
 
 

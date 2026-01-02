@@ -10,12 +10,16 @@ services:
       - BASE_URL=${BASE_URL:-http://localhost:8975}
       - PORT=${PORT:-8975}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - STORAGE_ROOT=${STORAGE_ROOT:-artera}
     volumes:
-      # CRITICAL: Mount artera folder to persist data across redeployments
+      # CRITICAL: Mount storage folder to persist data across redeployments
+      # Folder name is configurable via STORAGE_ROOT env var (default: artera)
+      # IMPORTANT: If you change STORAGE_ROOT, update the volume path below to match
+      # Example: If STORAGE_ROOT=storage, change to: ./storage:/app/storage
       # This volume ensures all files persist even when container is recreated
       - ./artera:/app/artera
       # Alternative: Use named volume (recommended for production)
-      # - artera-data:/app/artera
+      # - storage-data:/app/artera
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8975/health"]

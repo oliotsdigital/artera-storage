@@ -2,29 +2,39 @@
 Filesystem service for secure file and folder operations.
 Handles path validation and prevents path traversal attacks.
 """
+import os
 from pathlib import Path
 from typing import List, Optional
 from fastapi import HTTPException, status
 import shutil
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 
 class FilesystemService:
     """Service class for filesystem operations with security checks."""
     
-    def __init__(self, root_dir: str = "artera"):
+    def __init__(self, root_dir: Optional[str] = None):
         """
         Initialize the filesystem service.
         
         Args:
-            root_dir: Name of the root directory to manage (default: 'artera')
+            root_dir: Name of the root directory to manage. If None, reads from STORAGE_ROOT env var (default: 'artera')
         """
+        # Get root directory name from parameter or environment variable
+        if root_dir is None:
+            root_dir = os.getenv("STORAGE_ROOT", "artera")
+        
         self.project_root = Path(__file__).parent.parent
-        self.artera_root = self.project_root / root_dir
-        self._ensure_artera_root()
+        self.storage_root = self.project_root / root_dir
+        self.root_dir_name = root_dir
+        self._ensure_storage_root()
     
-    def _ensure_artera_root(self):
-        """Ensure the artera root directory exists."""
-        self.artera_root.mkdir(exist_ok=True)
+    def _ensure_storage_root(self):
+        """Ensure the storage root directory exists."""
+        self.storage_root.mkdir(exist_ok=True)
     
     def _validate_path(self, relative_path: str) -> Path:
         """
@@ -57,11 +67,11 @@ class FilesystemService:
             )
         
         # Resolve the full path
-        full_path = (self.artera_root / normalized).resolve()
+        full_path = (self.storage_root / normalized).resolve()
         
-        # Ensure the resolved path is still within artera root
+        # Ensure the resolved path is still within storage root
         try:
-            full_path.relative_to(self.artera_root.resolve())
+            full_path.relative_to(self.storage_root.resolve())
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -189,7 +199,7 @@ class FilesystemService:
         if file_path.exists() and not overwrite:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"File already exists: {file_path.relative_to(self.artera_root)}"
+                detail=f"File already exists: {file_path.relative_to(self.storage_root)}"
             )
         
         # Write file
@@ -237,10 +247,10 @@ class FilesystemService:
     
     def list_items(self, relative_path: Optional[str] = None, recursive: bool = True) -> List[dict]:
         """
-        List all files and folders inside artera.
+        List all files and folders inside storage root.
         
         Args:
-            relative_path: Optional relative path to list from (default: artera root)
+            relative_path: Optional relative path to list from (default: storage root)
             recursive: If True, return nested structure. If False, return only direct children.
             
         Returns:
@@ -259,7 +269,7 @@ class FilesystemService:
                     detail=f"Path is not a folder: {relative_path}"
                 )
         else:
-            base_path = self.artera_root
+            base_path = self.storage_root
         
         items = []
         
@@ -269,7 +279,7 @@ class FilesystemService:
                 if item_path == base_path:
                     continue
                 
-                relative_item_path = item_path.relative_to(self.artera_root)
+                relative_item_path = item_path.relative_to(self.storage_root)
                 
                 items.append({
                     "name": item_path.name,
@@ -280,7 +290,7 @@ class FilesystemService:
         else:
             # Non-recursive: only direct children
             for item_path in base_path.iterdir():
-                relative_item_path = item_path.relative_to(self.artera_root)
+                relative_item_path = item_path.relative_to(self.storage_root)
                 
                 items.append({
                     "name": item_path.name,
@@ -299,7 +309,7 @@ class FilesystemService:
         Build a nested tree structure of all files and folders.
         
         Args:
-            relative_path: Optional relative path to build tree from (default: artera root)
+            relative_path: Optional relative path to build tree from (default: storage root)
             
         Returns:
             Dictionary with tree structure containing root nodes, total_files, and total_folders
@@ -317,7 +327,7 @@ class FilesystemService:
                     detail=f"Path is not a folder: {relative_path}"
                 )
         else:
-            base_path = self.artera_root
+            base_path = self.storage_root
         
         # Get all items recursively
         items = []
@@ -325,7 +335,7 @@ class FilesystemService:
             if item_path == base_path:
                 continue
             
-            relative_item_path = item_path.relative_to(self.artera_root)
+            relative_item_path = item_path.relative_to(self.storage_root)
             
             items.append({
                 "name": item_path.name,
@@ -411,7 +421,11 @@ class FilesystemService:
             "total_folders": total_folders
         }
     
+    def get_storage_root(self) -> Path:
+        """Get the storage root directory path."""
+        return self.storage_root
+    
     def get_artera_root(self) -> Path:
-        """Get the artera root directory path."""
-        return self.artera_root
+        """Get the storage root directory path (deprecated, use get_storage_root)."""
+        return self.storage_root
 

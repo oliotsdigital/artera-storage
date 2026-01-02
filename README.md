@@ -38,7 +38,8 @@ Both methods will:
 **Configuration:**
 1. Copy `.env.example` to `.env`
 2. Update `BASE_URL` with your deployment URL (e.g., `https://your-domain.com`)
-3. Adjust other variables as needed
+3. Optionally set `STORAGE_ROOT` to customize the storage folder name (default: `artera`)
+4. Adjust other variables as needed
 
 The API will be available at the `BASE_URL` specified in `.env` (default: `http://localhost:8975`)
 
