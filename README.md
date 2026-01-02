@@ -17,10 +17,22 @@ A FastAPI application for managing files and folders within a secure root direct
 pip install -r requirements.txt
 ```
 
-2. Run the application:
+2. Run the application (choose one method):
+
+**Method 1: Using Python command**
+```bash
+python main.py
+```
+
+**Method 2: Using uvicorn command**
 ```bash
 uvicorn main:app --reload --port 8975
 ```
+
+Both methods will:
+- Load configuration from `.env` file
+- Use the PORT from `.env` (default: 8975)
+- Start the API server
 
 The API will be available at `http://localhost:8975`
 

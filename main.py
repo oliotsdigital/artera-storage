@@ -129,3 +129,30 @@ async def health_check():
         "artera_root_path": str(artera_root.absolute())
     }
 
+
+if __name__ == "__main__":
+    """
+    Allow running the application directly with: python main.py
+    
+    This enables both:
+    1. uvicorn main:app --reload --port 8975
+    2. python main.py
+    """
+    import uvicorn
+    
+    # Check if reload should be enabled (default: True for development)
+    reload_enabled = os.getenv("RELOAD", "true").lower() == "true"
+    
+    print(f"🚀 Starting Artera Storage API on {BASE_URL}")
+    print(f"📝 Port: {PORT}")
+    print(f"🔄 Auto-reload: {'enabled' if reload_enabled else 'disabled'}")
+    print(f"📚 API Docs: {BASE_URL}/docs")
+    print(f"🌐 Web UI: {BASE_URL}/")
+    
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=PORT,
+        reload=reload_enabled
+    )
+
