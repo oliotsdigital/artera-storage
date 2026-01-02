@@ -30,13 +30,19 @@ uvicorn main:app --reload --port 8975
 ```
 
 Both methods will:
-- Load configuration from `.env` file
-- Use the PORT from `.env` (default: 8975)
+- Load configuration from `.env` file (copy `.env.example` to `.env` and configure)
+- Use the `BASE_URL` from `.env` (default: http://localhost:8975)
+- Use the `PORT` from `.env` (default: 8975)
 - Start the API server
 
-The API will be available at `http://localhost:8975`
+**Configuration:**
+1. Copy `.env.example` to `.env`
+2. Update `BASE_URL` with your deployment URL (e.g., `https://your-domain.com`)
+3. Adjust other variables as needed
 
-API documentation (Swagger UI) will be available at `http://localhost:8975/docs`
+The API will be available at the `BASE_URL` specified in `.env` (default: `http://localhost:8975`)
+
+API documentation (Swagger UI) will be available at `{BASE_URL}/docs`
 
 ## API Endpoints
 

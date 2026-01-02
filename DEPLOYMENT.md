@@ -104,11 +104,16 @@ To ensure the `artera` folder persists across redeployments in Docker/Coolify, y
 
 #### Step 3: Environment Variables in Coolify
 
-Set these environment variables (if not using defaults):
+Set these environment variables (see `.env.example` for reference):
 
-- `BASE_URL`: Your application URL (e.g., `https://your-domain.com`)
-- `PORT`: `8975`
-- `CORS_ORIGINS`: Your allowed origins (comma-separated, e.g., `https://frontend.com`)
+**Required:**
+- `BASE_URL`: Your application URL (e.g., `https://your-domain.com` or `https://your-app-name.your-domain.com`)
+  - This URL is used throughout the application (API docs, responses, web UI)
+  - Must match your actual deployment URL
+
+**Optional (defaults provided):**
+- `PORT`: `8975` (default)
+- `CORS_ORIGINS`: Your allowed origins (comma-separated, e.g., `https://frontend.com`, or `*` for all)
 
 #### Step 4: Deploy
 
@@ -237,11 +242,19 @@ tar -xzf artera-backup-YYYYMMDD.tar.gz -C ./artera/
 
 ### Environment Variables
 
-The application uses environment variables from `.env`:
+The application uses environment variables from `.env` file. Copy `.env.example` to `.env` and configure:
 
+**Required:**
 - `BASE_URL`: API base URL (default: http://localhost:8975)
+  - Used in API documentation, responses, and web UI
+  - Set to your actual deployment URL (e.g., `https://your-domain.com`)
+
+**Optional:**
 - `PORT`: Server port (default: 8975)
 - `CORS_ORIGINS`: CORS allowed origins (default: *)
+- `RELOAD`: Enable auto-reload for development (default: true)
+
+See `.env.example` for a complete example configuration.
 
 ### Startup Logs
 

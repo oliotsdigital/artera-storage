@@ -2,9 +2,13 @@
                     ARTERA STORAGE API - ENDPOINTS DOCUMENTATION
 ================================================================================
 
-Base URL: http://localhost:8975
-API Documentation: http://localhost:8975/docs (Swagger UI)
-Web UI: http://localhost:8975/
+⚠️ IMPORTANT: All URLs in this documentation use example values.
+   Replace "http://localhost:8975" with your actual BASE_URL from .env file.
+   The BASE_URL is configured in .env (see .env.example for reference).
+
+Base URL: http://localhost:8975 (example - replace with your BASE_URL from .env)
+API Documentation: {BASE_URL}/docs (Swagger UI)
+Web UI: {BASE_URL}/
 
 ================================================================================
                             FOLDER MANAGEMENT ENDPOINTS
@@ -495,7 +499,10 @@ GET /health
                             NOTES
 ================================================================================
 
-- Base URL can be configured in .env file (BASE_URL)
+- Base URL is configured via BASE_URL in .env file (see .env.example)
+  - Used throughout the application: API docs, responses, web UI
+  - Set to your actual deployment URL (e.g., https://your-domain.com)
+  - Default: http://localhost:8975
 - Default port is 8975 (configurable via PORT in .env)
 - All file and folder operations are restricted to the artera directory
 - The artera directory is automatically created on application startup

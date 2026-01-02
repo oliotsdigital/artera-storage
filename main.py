@@ -67,12 +67,8 @@ app = FastAPI(
     },
     servers=[
         {
-            "url": "http://localhost:8975",
-            "description": "Development server"
-        },
-        {
-            "url": "https://api.example.com",
-            "description": "Production server"
+            "url": BASE_URL,
+            "description": "Server configured via BASE_URL environment variable"
         },
     ],
     tags_metadata=[
