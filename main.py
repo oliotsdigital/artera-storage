@@ -4,7 +4,7 @@ FastAPI application for managing files and folders within the 'artera' root dire
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from dotenv import load_dotenv
@@ -81,18 +81,30 @@ async def startup_event():
     print("⚠ IMPORTANT: All files and folders in artera directory persist across redeployments")
 
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """Serve the HTML UI."""
+    """Serve the HTML UI with BASE_URL injected from .env."""
     html_file = Path(__file__).parent / "static" / "index.html"
     if html_file.exists():
-        return FileResponse(html_file)
-    return {
-        "message": "Artera Storage API",
-        "status": "running",
-        "version": "1.0.0",
-        "base_url": BASE_URL
-    }
+        # Read HTML file and inject BASE_URL
+        html_content = html_file.read_text(encoding='utf-8')
+        # Replace the API_BASE constant with BASE_URL from .env
+        html_content = html_content.replace(
+            'const API_BASE = window.location.origin;',
+            f'const API_BASE = "{BASE_URL}";'
+        )
+        return HTMLResponse(content=html_content)
+    return HTMLResponse(content=f"""
+    <html>
+        <body>
+            <h1>Artera Storage API</h1>
+            <p>Status: running</p>
+            <p>Version: 1.0.0</p>
+            <p>Base URL: {BASE_URL}</p>
+            <p><a href="/docs">API Documentation</a></p>
+        </body>
+    </html>
+    """)
 
 
 @app.get("/api")
@@ -112,6 +124,7 @@ async def health_check():
     artera_root = Path(__file__).parent / "artera"
     return {
         "status": "healthy",
+        "base_url": BASE_URL,
         "artera_root_exists": artera_root.exists(),
         "artera_root_path": str(artera_root.absolute())
     }

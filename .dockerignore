@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation (optional - uncomment if you don't want docs in image)
+# README.md
+# DEPLOYMENT.md
+# API_ENDPOINTS.txt
+
+# Note: artera/ is NOT in .dockerignore - we want to preserve it
+# but it will be mounted as a volume, so contents won't be copied to image
+
