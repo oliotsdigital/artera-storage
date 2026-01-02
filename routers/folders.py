@@ -9,7 +9,43 @@ router = APIRouter()
 filesystem_service = FilesystemService()
 
 
-@router.post("/create", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/create",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Folder",
+    description="""
+    Create a folder at the specified relative path inside the artera directory.
+    
+    **Features:**
+    - Creates intermediate directories if they don't exist
+    - Idempotent operation (returns success if folder already exists)
+    - Supports nested folder creation in a single request
+    - Path traversal protection (../ is blocked)
+    
+    **Example:**
+    ```json
+    {
+        "path": "projects/project1/assets/images"
+    }
+    ```
+    """,
+    responses={
+        201: {
+            "description": "Folder created successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Folder created successfully: projects/project1/assets/images",
+                        "path": "projects/project1/assets/images"
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid path or path traversal detected"},
+        500: {"description": "Internal server error"}
+    }
+)
 async def create_folder(request: CreateFolderRequest):
     """
     Create a folder at the specified relative path inside artera.
@@ -40,7 +76,45 @@ async def create_folder(request: CreateFolderRequest):
         )
 
 
-@router.delete("/delete", response_model=MessageResponse, status_code=status.HTTP_200_OK)
+@router.delete(
+    "/delete",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Delete Folder",
+    description="""
+    Delete a folder at the specified relative path inside the artera directory.
+    
+    **Warning:** This operation is recursive and will delete the folder and ALL its contents.
+    
+    **Features:**
+    - Validates that the path exists and is a folder
+    - Recursively deletes folder and all its contents
+    - Path traversal protection (../ is blocked)
+    
+    **Example:**
+    ```json
+    {
+        "path": "projects/project1/assets/images"
+    }
+    ```
+    """,
+    responses={
+        200: {
+            "description": "Folder deleted successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "message": "Folder deleted successfully: projects/project1/assets/images",
+                        "path": "projects/project1/assets/images"
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid path or path is not a folder"},
+        404: {"description": "Folder not found"},
+        500: {"description": "Internal server error"}
+    }
+)
 async def delete_folder(request: DeleteFolderRequest):
     """
     Delete a folder at the specified relative path inside artera.

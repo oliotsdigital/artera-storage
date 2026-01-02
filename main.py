@@ -19,11 +19,76 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8975")
 PORT = int(os.getenv("PORT", "8975"))
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",") if os.getenv("CORS_ORIGINS") != "*" else ["*"]
 
-# Initialize FastAPI app
+# Initialize FastAPI app with enhanced OpenAPI documentation
 app = FastAPI(
     title="Artera Storage API",
-    description="API for managing files and folders within the artera directory",
-    version="1.0.0"
+    description="""
+    ## Artera Storage API
+    
+    A secure FastAPI application for managing files and folders within the `artera` root directory.
+    
+    ### Features
+    
+    * 📁 **Folder Management**: Create and delete folders with nested directory support
+    * 📄 **File Management**: Upload, delete, and list files
+    * 🔒 **Security**: Path traversal protection, input validation
+    * 🌳 **Tree Structure**: Get hierarchical tree view of all files and folders
+    * 🎨 **Web UI**: Built-in HTML interface for browsing files
+    
+    ### Security
+    
+    * All operations are restricted to the `artera` directory
+    * Path traversal attacks are prevented (`../` blocked)
+    * Input validation using Pydantic models
+    * Proper HTTP status codes for all operations
+    
+    ### Data Persistence
+    
+    * The `artera` folder and all contents persist across redeployments
+    * Default folders (`logo`, `potentials`) are created automatically
+    * All user data is preserved during application updates
+    
+    ### API Documentation
+    
+    * **Swagger UI**: Available at `/docs`
+    * **ReDoc**: Available at `/redoc`
+    * **OpenAPI JSON**: Available at `/openapi.json`
+    """,
+    version="1.0.0",
+    terms_of_service="https://example.com/terms/",
+    contact={
+        "name": "Artera Storage API Support",
+        "url": "https://example.com/contact/",
+        "email": "support@example.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    servers=[
+        {
+            "url": "http://localhost:8975",
+            "description": "Development server"
+        },
+        {
+            "url": "https://api.example.com",
+            "description": "Production server"
+        },
+    ],
+    tags_metadata=[
+        {
+            "name": "folders",
+            "description": "Operations for managing folders. Create and delete folders with nested directory support.",
+        },
+        {
+            "name": "files",
+            "description": "Operations for managing files. Upload, delete, list files, and get tree structure.",
+        },
+        {
+            "name": "utilities",
+            "description": "Utility endpoints for health checks and API information.",
+        },
+    ],
 )
 
 # Add CORS middleware (optional, useful for frontend integration)
@@ -35,7 +100,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
+# Include routers with tags for Swagger documentation
 app.include_router(folders.router, prefix="/api/folders", tags=["folders"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 
@@ -81,7 +146,13 @@ async def startup_event():
     print("⚠ IMPORTANT: All files and folders in artera directory persist across redeployments")
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+    tags=["utilities"],
+    summary="Web UI",
+    description="Serves the HTML web interface for browsing files and folders."
+)
 async def root():
     """Serve the HTML UI with BASE_URL injected from .env."""
     html_file = Path(__file__).parent / "static" / "index.html"
@@ -107,7 +178,13 @@ async def root():
     """)
 
 
-@app.get("/api")
+@app.get(
+    "/api",
+    tags=["utilities"],
+    summary="API Information",
+    description="Returns API information including version, status, and base URL.",
+    response_description="API information and status"
+)
 async def api_info():
     """API information endpoint."""
     return {
@@ -118,7 +195,13 @@ async def api_info():
     }
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["utilities"],
+    summary="Health Check",
+    description="Returns the health status of the API and artera directory information.",
+    response_description="Health status and artera root directory information"
+)
 async def health_check():
     """Health check endpoint."""
     artera_root = Path(__file__).parent / "artera"
