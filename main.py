@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from dotenv import load_dotenv
 
-from routers import files, folders
+from routers import files, folders, auth
 
 # Load environment variables from .env file
 load_dotenv()
@@ -38,6 +38,8 @@ app = FastAPI(
     * **STORAGE_ROOT**: Storage folder name - `{STORAGE_ROOT}` (default: artera)
     * **CORS_ORIGINS**: Allowed CORS origins (comma-separated or `*` for all)
     * **RELOAD**: Enable auto-reload for development (true/false)
+    * **JWT_SECRET_KEY**: Secret key for JWT token signing (change in production!)
+    * **JWT_ACCESS_TOKEN_EXPIRE_MINUTES**: Token expiration time in minutes (default: 1440)
     
     ### Features
     
@@ -49,10 +51,17 @@ app = FastAPI(
     
     ### Security
     
+    * **JWT Authentication**: All API endpoints (except `/api/auth/login`, `/health`, `/api`) require JWT authentication
     * All operations are restricted to the storage root directory (`{STORAGE_ROOT}`)
     * Path traversal attacks are prevented (`../` blocked)
     * Input validation using Pydantic models
     * Proper HTTP status codes for all operations
+    
+    ### Authentication
+    
+    * **Login**: POST `/api/auth/login` with username/password to get JWT token
+    * **Usage**: Include token in Authorization header: `Bearer <token>`
+    * **Token Expiration**: Configurable via `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` (default: 24 hours)
     
     ### Data Persistence
     
@@ -85,12 +94,16 @@ app = FastAPI(
     ],
     tags_metadata=[
         {
+            "name": "authentication",
+            "description": "Authentication endpoints for JWT token generation and verification.",
+        },
+        {
             "name": "folders",
-            "description": "Operations for managing folders. Create and delete folders with nested directory support.",
+            "description": "Operations for managing folders. Create and delete folders with nested directory support. **Requires JWT authentication.**",
         },
         {
             "name": "files",
-            "description": "Operations for managing files. Upload, delete, list files, and get tree structure.",
+            "description": "Operations for managing files. Upload, delete, list files, and get tree structure. **Requires JWT authentication.**",
         },
         {
             "name": "utilities",
@@ -109,6 +122,7 @@ app.add_middleware(
 )
 
 # Include routers with tags for Swagger documentation
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 app.include_router(folders.router, prefix="/api/folders", tags=["folders"])
 app.include_router(files.router, prefix="/api/files", tags=["files"])
 
@@ -131,6 +145,38 @@ def custom_openapi():
         description=app.description,
         routes=app.routes,
     )
+    
+    # Add JWT Bearer authentication to OpenAPI schema
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+    
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT token obtained from /api/auth/login endpoint"
+        }
+    }
+    
+    # Add security requirements to protected endpoints
+    # Exclude public endpoints: /, /health, /api, /api/auth/login, /docs, /openapi.json, /redoc
+    public_paths = ["/", "/health", "/api", "/docs", "/openapi.json", "/redoc", "/static"]
+    auth_paths = ["/api/auth/login"]
+    
+    for path, path_item in openapi_schema.get("paths", {}).items():
+        # Skip public paths
+        if any(path.startswith(public) for public in public_paths):
+            continue
+        # Skip auth login endpoint
+        if path in auth_paths:
+            continue
+        
+        # Add security requirement to all operations in this path
+        for method in ["get", "post", "put", "delete", "patch"]:
+            if method in path_item:
+                if "security" not in path_item[method]:
+                    path_item[method]["security"] = [{"BearerAuth": []}]
     
     # Add environment variable information to the schema
     openapi_schema["info"]["x-environment-variables"] = {
@@ -158,6 +204,16 @@ def custom_openapi():
             "description": "Enable auto-reload for development",
             "default": "true",
             "current": os.getenv("RELOAD", "true")
+        },
+        "JWT_SECRET_KEY": {
+            "description": "Secret key for JWT token signing (change in production!)",
+            "default": "your-secret-key-change-this-in-production",
+            "current": "***hidden***"
+        },
+        "JWT_ACCESS_TOKEN_EXPIRE_MINUTES": {
+            "description": "JWT token expiration time in minutes",
+            "default": "1440",
+            "current": os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "1440")
         }
     }
     

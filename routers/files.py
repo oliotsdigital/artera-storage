@@ -1,10 +1,11 @@
 """
 Router for file management operations.
 """
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, status
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, status, Depends
 from typing import Optional
 from schemas.filesystem import MessageResponse, ListResponse, FileItem, TreeResponse, TreeNode
 from services.filesystem_service import FilesystemService
+from services.auth_service import get_current_user
 
 router = APIRouter()
 filesystem_service = FilesystemService()
@@ -62,7 +63,8 @@ filesystem_service = FilesystemService()
 async def upload_file(
     file: UploadFile = File(..., description="File to upload"),
     folder_path: str = Form(..., description="Target folder path inside storage root (e.g., 'projects/project1/docs')"),
-    overwrite: bool = Form(True, description="Overwrite existing file if it exists")
+    overwrite: bool = Form(True, description="Overwrite existing file if it exists"),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Upload a file to the specified folder path inside storage root (configurable via STORAGE_ROOT env var).
@@ -148,7 +150,10 @@ async def upload_file(
         500: {"description": "Internal server error"}
     }
 )
-async def delete_file(file_path: str = Query(..., description="Relative path to the file inside storage root")):
+async def delete_file(
+    file_path: str = Query(..., description="Relative path to the file inside storage root"),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Delete a file at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
@@ -237,6 +242,7 @@ async def delete_file(file_path: str = Query(..., description="Relative path to 
 )
 async def list_files_and_folders(
     path: Optional[str] = Query(None, description="Optional relative path to list from (default: storage root)"),
+    current_user: dict = Depends(get_current_user)
     recursive: bool = Query(True, description="If true, return nested structure. If false, return only direct children.")
 ):
     """
@@ -348,7 +354,8 @@ async def list_files_and_folders(
     }
 )
 async def get_tree(
-    path: Optional[str] = Query(None, description="Optional relative path to build tree from (default: storage root)")
+    path: Optional[str] = Query(None, description="Optional relative path to build tree from (default: storage root)"),
+    current_user: dict = Depends(get_current_user)
 ):
     """
     Get the full nested tree structure of all files and folders inside storage root (configurable via STORAGE_ROOT env var).

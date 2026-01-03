@@ -1,9 +1,10 @@
 """
 Router for folder management operations.
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from schemas.filesystem import CreateFolderRequest, DeleteFolderRequest, MessageResponse
 from services.filesystem_service import FilesystemService
+from services.auth_service import get_current_user
 
 router = APIRouter()
 filesystem_service = FilesystemService()
@@ -50,7 +51,10 @@ filesystem_service = FilesystemService()
         500: {"description": "Internal server error"}
     }
 )
-async def create_folder(request: CreateFolderRequest):
+async def create_folder(
+    request: CreateFolderRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Create a folder at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
@@ -123,7 +127,10 @@ async def create_folder(request: CreateFolderRequest):
         500: {"description": "Internal server error"}
     }
 )
-async def delete_folder(request: DeleteFolderRequest):
+async def delete_folder(
+    request: DeleteFolderRequest,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Delete a folder at the specified relative path inside storage root (configurable via STORAGE_ROOT env var).
     
