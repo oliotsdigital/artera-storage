@@ -2,7 +2,6 @@
 Authentication schemas for request/response models.
 """
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class TokenRequest(BaseModel):
@@ -16,10 +15,4 @@ class TokenResponse(BaseModel):
     access_token: str = Field(..., description="JWT access token")
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: int = Field(..., description="Token expiration time in minutes")
-
-
-class TokenData(BaseModel):
-    """Token data model."""
-    username: Optional[str] = None
-    user_id: Optional[str] = None
 

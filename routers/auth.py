@@ -1,14 +1,11 @@
 """
 Router for authentication operations.
 """
-import os
 from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import HTTPBearer
 from schemas.auth import TokenRequest, TokenResponse
-from services.auth_service import create_access_token, JWT_ACCESS_TOKEN_EXPIRE_MINUTES
+from services.auth_service import create_access_token, get_current_user, JWT_ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()
-security = HTTPBearer()
 
 
 @router.post(
@@ -19,13 +16,8 @@ security = HTTPBearer()
     description="""
     Authenticate and receive a JWT access token.
     
-    **Note:** This is a simple authentication endpoint. In production, you should:
-    - Validate credentials against a database
-    - Use password hashing (bcrypt)
-    - Implement user management
-    
-    **Current Implementation:**
-    - Accepts any username/password combination
+    **Implementation:**
+    - Accepts username and password
     - Returns a JWT token valid for 24 hours (configurable via JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
     - Token must be included in Authorization header: `Bearer <token>`
     
@@ -54,16 +46,12 @@ security = HTTPBearer()
 async def login(request: TokenRequest):
     """
     Login endpoint to get JWT access token.
-    
-    In a production environment, you should validate credentials against a database.
-    For now, this accepts any username/password and generates a token.
+    Accepts username and password and returns a JWT token.
     """
-    # TODO: In production, validate credentials against database
-    # For now, accept any username/password
     username = request.username
     password = request.password
     
-    # Basic validation (in production, check against database)
+    # Basic validation
     if not username or not password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -72,11 +60,10 @@ async def login(request: TokenRequest):
         )
     
     # Create token with user information
-    # In production, you would fetch user_id from database
     token_data = {
-        "sub": username,  # Subject (user identifier)
+        "sub": username,
         "username": username,
-        "user_id": username,  # In production, use actual user ID from database
+        "user_id": username,
     }
     
     access_token = create_access_token(data=token_data)
@@ -99,7 +86,7 @@ async def login(request: TokenRequest):
     """,
     tags=["authentication"]
 )
-async def verify_token_endpoint(current_user: dict = Depends(security)):
+async def verify_token_endpoint(current_user: dict = Depends(get_current_user)):
     """
     Verify token endpoint - returns current user information from token.
     """

@@ -242,8 +242,8 @@ async def delete_file(
 )
 async def list_files_and_folders(
     path: Optional[str] = Query(None, description="Optional relative path to list from (default: storage root)"),
+    recursive: bool = Query(True, description="If true, return nested structure. If false, return only direct children."),
     current_user: dict = Depends(get_current_user)
-    recursive: bool = Query(True, description="If true, return nested structure. If false, return only direct children.")
 ):
     """
     List all files and folders inside storage root (configurable via STORAGE_ROOT env var).
