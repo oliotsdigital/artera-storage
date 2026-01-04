@@ -4,7 +4,7 @@ Handles path validation and prevents path traversal attacks.
 """
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from fastapi import HTTPException, status
 import shutil
 from dotenv import load_dotenv
@@ -428,4 +428,33 @@ class FilesystemService:
     def get_artera_root(self) -> Path:
         """Get the storage root directory path (deprecated, use get_storage_root)."""
         return self.storage_root
+    
+    def get_file_for_download(self, relative_file_path: str) -> Tuple[Path, str]:
+        """
+        Get file path and filename for download.
+        
+        Args:
+            relative_file_path: Relative path to the file inside storage root
+            
+        Returns:
+            Tuple of (full_path, filename) for the file
+            
+        Raises:
+            HTTPException: If file doesn't exist or path is invalid
+        """
+        full_path = self._validate_path(relative_file_path)
+        
+        if not full_path.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File not found: {relative_file_path}"
+            )
+        
+        if not full_path.is_file():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Path is not a file: {relative_file_path}"
+            )
+        
+        return full_path, full_path.name
 

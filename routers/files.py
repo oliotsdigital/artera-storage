@@ -1,7 +1,9 @@
 """
 Router for file management operations.
 """
+import mimetypes
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, status, Depends
+from fastapi.responses import FileResponse
 from typing import Optional
 from schemas.filesystem import MessageResponse, ListResponse, FileItem, TreeResponse, TreeNode
 from services.filesystem_service import FilesystemService
@@ -419,6 +421,92 @@ async def get_tree(
             tree=tree_nodes,
             total_files=tree_data["total_files"],
             total_folders=tree_data["total_folders"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {str(e)}"
+        )
+
+
+@router.get(
+    "/download",
+    status_code=status.HTTP_200_OK,
+    summary="Download File",
+    description="""
+    Download a file from the storage root directory based on the provided file path.
+    
+    **Storage Location:**
+    - Files are stored in the storage root directory (configurable via STORAGE_ROOT env var)
+    - Default storage folder: `artera` (can be changed via STORAGE_ROOT environment variable)
+    
+    **Features:**
+    - Downloads file as attachment with proper Content-Disposition header
+    - Automatically detects file MIME type for proper browser handling
+    - Path traversal protection (../ is blocked)
+    - Returns 404 if file doesn't exist
+    - Returns 400 if path is not a file
+    
+    **Query Parameters:**
+    - `file_path`: Relative path to the file inside storage root (required)
+    
+    **Example:**
+    ```
+    GET /api/files/download?file_path=projects/project1/docs/document.pdf
+    ```
+    
+    **Response:**
+    - Returns the file as a binary download with appropriate Content-Type header
+    - Browser will prompt download or display file based on MIME type
+    """,
+    responses={
+        200: {
+            "description": "File downloaded successfully",
+            "content": {
+                "application/octet-stream": {
+                    "schema": {
+                        "type": "string",
+                        "format": "binary"
+                    }
+                }
+            }
+        },
+        400: {"description": "Invalid path or path is not a file"},
+        404: {"description": "File not found"},
+        500: {"description": "Internal server error"}
+    },
+    response_class=FileResponse
+)
+async def download_file(
+    file_path: str = Query(..., description="Relative path to the file inside storage root"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Download a file from the storage root directory based on the provided file path.
+    
+    - Downloads file as attachment with proper Content-Disposition header
+    - Automatically detects file MIME type for proper browser handling
+    - Path traversal protection (../ is blocked)
+    - Returns 404 if file doesn't exist
+    - Returns 400 if path is not a file
+    
+    Example query parameter:
+        ?file_path=projects/project1/docs/document.pdf
+    """
+    try:
+        full_path, filename = filesystem_service.get_file_for_download(file_path)
+        
+        # Detect MIME type based on file extension
+        media_type, _ = mimetypes.guess_type(str(full_path))
+        if media_type is None:
+            media_type = 'application/octet-stream'
+        
+        return FileResponse(
+            path=str(full_path),
+            filename=filename,
+            media_type=media_type
         )
     except HTTPException:
         raise
